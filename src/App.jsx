@@ -22,6 +22,7 @@ function App() {
     return newId;
   });
   const [input, setInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemma');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileError, setFileError] = useState('');
@@ -336,6 +337,13 @@ function App() {
                   onChange={handleFileSelect}
                   style={{ display: 'none' }}
                 />
+                  <select
+  value={selectedModel}
+  onChange={(e) => setSelectedModel(e.target.value)}
+>
+  <option value="gemma">Gemma</option>
+  <option value="gpt4">GPT-4</option>
+</select>
                 <button
                   type="button"
                   className={`tool-btn ${selectedFile ? 'tool-btn-active' : ''}`}
