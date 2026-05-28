@@ -666,3 +666,18 @@ body {
     object-fit: cover;
     border-radius: 4px;
 }
+
+/* TokenLens Link styling in sidebar */
+.tokenlens-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-decoration: none !important;
+    color: var(--text-dim) !important;
+    transition: all 0.2s ease;
+}
+
+.tokenlens-link:hover {
+    color: var(--text-main) !important;
+    background: var(--glass-hover);
+}

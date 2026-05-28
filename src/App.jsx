@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image } from 'lucide-react';
+import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, Compass, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './index.css';
 
@@ -187,15 +187,29 @@ function App() {
 
         <div className="chat-history">
           <div className="history-item active">Current Conversation</div>
-          {messages.length > 0 && (
-            <button
-              className="history-item delete-history"
-              onClick={clearChat}
-              style={{ marginTop: 'auto', border: 'none', background: 'none', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '8px' }}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {messages.length > 0 && (
+              <button
+                className="history-item delete-history"
+                onClick={clearChat}
+                style={{ border: 'none', background: 'none', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}
+              >
+                <Trash2 size={14} /> Clear History
+              </button>
+            )}
+            <a
+              href="https://tokenlens.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="history-item tokenlens-link"
             >
-              <Trash2 size={14} /> Clear History
-            </button>
-          )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Compass size={14} />
+                <span>TokenLens</span>
+              </div>
+              <ExternalLink size={12} style={{ opacity: 0.5 }} />
+            </a>
+          </div>
         </div>
 
         <div className="sidebar-footer">
