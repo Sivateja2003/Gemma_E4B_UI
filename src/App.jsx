@@ -6,8 +6,10 @@ import './index.css';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
-const INPUT_COST_PER_TOKEN = 0.10 / 1_000_000;
-const OUTPUT_COST_PER_TOKEN = 0.40 / 1_000_000;
+const MODEL_PRICING = {
+  gemma: { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000, label: 'Gemma' },
+  gpt4:  { input: 2.50 / 1_000_000, output: 10.00 / 1_000_000, label: 'GPT-4' },
+};
 
 function App() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -155,6 +157,7 @@ function App() {
       const latencyMs = Date.now() - startTime;
       const pTok = data.usage?.prompt_tokens ?? data.prompt_tokens ?? data.input_tokens ?? estimateTokens(trimmed);
       const cTok = data.usage?.completion_tokens ?? data.completion_tokens ?? data.output_tokens ?? estimateTokens(data.response);
+      const pricing = MODEL_PRICING[selectedModel] ?? MODEL_PRICING.gemma;
       setMetricsData(prev => [...prev, {
         id: `m-${Date.now()}`,
         timestamp: Date.now(),
@@ -162,7 +165,8 @@ function App() {
         completion_tokens: cTok,
         total_tokens: pTok + cTok,
         latency_ms: latencyMs,
-        cost_usd: pTok * INPUT_COST_PER_TOKEN + cTok * OUTPUT_COST_PER_TOKEN,
+        model: selectedModel,
+        cost_usd: pTok * pricing.input + cTok * pricing.output,
       }]);
 
       setMessages(prev => [...prev, { role: 'bot', content: data.response }]);
