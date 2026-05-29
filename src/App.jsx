@@ -68,6 +68,16 @@ function App() {
     return [];
   });
 
+  const [userId] = useState(() => {
+    const saved = localStorage.getItem('gemma_user_id');
+    if (saved) return saved;
+    const newId = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    localStorage.setItem('gemma_user_id', newId);
+    return newId;
+  });
+
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState('gemma');
   const [isLoading, setIsLoading] = useState(false);
@@ -212,6 +222,7 @@ function App() {
         formData.append('file', selectedFile);
         formData.append('message', trimmed);
         formData.append('session_id', sesssionId);
+        formData.append('user_id', userId);
 
         setUploadProgress(0);
         data = await new Promise((resolve, reject) => {
@@ -235,7 +246,7 @@ function App() {
         const response = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: trimmed, session_id: sesssionId }),
+          body: JSON.stringify({ message: trimmed, session_id: sesssionId, user_id: userId }),
         });
         if (!response.ok) throw new Error('Failed to connect to Gemma E4B');
         data = await response.json();
@@ -264,7 +275,6 @@ function App() {
       
       const totalCostUsd = inputCostUsd + outputCostUsd;
       const totalCostInr = totalCostUsd * INR_RATE;
-
       setMetricsData(prev => [...prev, {
         id: `m-${Date.now()}`,
         timestamp: Date.now(),
@@ -385,43 +395,37 @@ function App() {
               </button>
             </div>
           ))}
-
-          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          {(conversations.length > 0 || messages.length > 0) && (
-            <button
-              className="history-item delete-history"
-              onClick={clearAllConversations}
-              style={{ border: 'none', background: 'none', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}
-            >
-              <Trash2 size={14} /> Clear History
-            </button>
-          )}
-            <a
-              href="https://tokenlens.dev"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="history-item tokenlens-link"
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Compass size={14} />
-                <span>TokenLens</span>
-              </div>
-              <ExternalLink size={12} style={{ opacity: 0.5 }} />
-            </a>
-          </div>
         </div>
 
-        {/* ===== Dashboard nav — above footer ===== */}
-        <button
-          className={`dashboard-nav-btn ${view === 'metrics' ? 'active' : ''}`}
-          onClick={() => setView('metrics')}
-        >
-          <LayoutDashboard size={15} />
-          <span>Dashboard</span>
-          {metricsData.length > 0 && (
-            <span className="dashboard-nav-badge">{metricsData.length}</span>
+        {/* ===== Bottom navigation ===== */}
+        <div className="sidebar-nav">
+          <button
+            className={`dashboard-nav-btn ${view === 'metrics' ? 'active' : ''}`}
+            onClick={() => setView('metrics')}
+          >
+            <LayoutDashboard size={15} />
+            <span>Analytics Dashboard</span>
+            {metricsData.length > 0 && (
+              <span className="dashboard-nav-badge">{metricsData.length}</span>
+            )}
+          </button>
+          <a
+            href="https://tokenlens.dev"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="dashboard-nav-btn tokenlens-nav"
+          >
+            <Compass size={15} />
+            <span>TokenLens</span>
+            <ExternalLink size={11} style={{ marginLeft: 'auto', opacity: 0.45 }} />
+          </a>
+          {(conversations.length > 0 || messages.length > 0) && (
+            <button className="dashboard-nav-btn nav-danger" onClick={clearAllConversations}>
+              <Trash2 size={15} />
+              <span>Clear History</span>
+            </button>
           )}
-        </button>
+        </div>
 
         <div className="sidebar-footer">
           <div className="user-profile">
