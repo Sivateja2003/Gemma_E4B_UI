@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
   LineChart, Line,
@@ -10,6 +10,12 @@ import {
 import { Zap, Clock, DollarSign, TrendingUp, LayoutDashboard, Trash2 } from 'lucide-react';
 
 const INR_RATE = 84.5;
+
+const MODEL_OPTIONS = [
+  { value: 'all', label: 'All Models' },
+  { value: 'gemma', label: 'Gemma' },
+  { value: 'gpt4', label: 'GPT-4' },
+];
 
 const TOOLTIP_STYLE = {
   backgroundColor: '#1a1a1e',
@@ -44,13 +50,21 @@ function MetricCard({ icon: Icon, label, value, sub, color, gradient }) {
 }
 
 export default function MetricsView({ metrics, onClearMetrics }) {
+  const [selectedModel, setSelectedModel] = useState('all');
+
+  const filtered = useMemo(() =>
+    selectedModel === 'all'
+      ? metrics
+      : metrics.filter(m => (m.model ?? 'gemma') === selectedModel),
+  [metrics, selectedModel]);
+
   const stats = useMemo(() => {
-    if (!metrics.length) return null;
-    const totalPrompt = metrics.reduce((s, m) => s + m.prompt_tokens, 0);
-    const totalCompletion = metrics.reduce((s, m) => s + m.completion_tokens, 0);
-    const latencies = metrics.map(m => m.latency_ms);
+    if (!filtered.length) return null;
+    const totalPrompt = filtered.reduce((s, m) => s + m.prompt_tokens, 0);
+    const totalCompletion = filtered.reduce((s, m) => s + m.completion_tokens, 0);
+    const latencies = filtered.map(m => m.latency_ms);
     const avgLatency = latencies.reduce((s, v) => s + v, 0) / latencies.length;
-    const totalCostUsd = metrics.reduce((s, m) => s + m.cost_usd, 0);
+    const totalCostUsd = filtered.reduce((s, m) => s + m.cost_usd, 0);
     return {
       totalPrompt,
       totalCompletion,
@@ -60,19 +74,19 @@ export default function MetricsView({ metrics, onClearMetrics }) {
       maxLatency: Math.max(...latencies),
       totalCostUsd,
       totalCostInr: totalCostUsd * INR_RATE,
-      avgCostUsd: totalCostUsd / metrics.length,
+      avgCostUsd: totalCostUsd / filtered.length,
     };
-  }, [metrics]);
+  }, [filtered]);
 
   const chartData = useMemo(() =>
-    metrics.slice(-30).map((m, i) => ({
-      name: `#${metrics.length - Math.min(30, metrics.length) + i + 1}`,
+    filtered.slice(-30).map((m, i) => ({
+      name: `#${filtered.length - Math.min(30, filtered.length) + i + 1}`,
       prompt: m.prompt_tokens,
       completion: m.completion_tokens,
       latency: Math.round(m.latency_ms),
       cost: parseFloat((m.cost_usd * 1_000_000).toFixed(3)),
     })),
-  [metrics]);
+  [filtered]);
 
   const handleClear = () => {
     if (window.confirm('Clear all dashboard metrics data?')) onClearMetrics();
@@ -85,12 +99,23 @@ export default function MetricsView({ metrics, onClearMetrics }) {
           <div className="header-title-icon"><LayoutDashboard size={16} /></div>
           <h1>DASHBOARD</h1>
         </div>
-        {metrics.length > 0 && (
-          <button className="metrics-clear-btn" onClick={handleClear}>
-            <Trash2 size={14} />
-            <span>Clear</span>
-          </button>
-        )}
+        <div className="metrics-header-actions">
+          <select
+            className="model-select"
+            value={selectedModel}
+            onChange={e => setSelectedModel(e.target.value)}
+          >
+            {MODEL_OPTIONS.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          {metrics.length > 0 && (
+            <button className="metrics-clear-btn" onClick={handleClear}>
+              <Trash2 size={14} />
+              <span>Clear</span>
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="metrics-body">
@@ -98,6 +123,11 @@ export default function MetricsView({ metrics, onClearMetrics }) {
           <div className="metrics-empty">
             <LayoutDashboard size={48} strokeWidth={1} />
             <p>No data yet — send a message to start tracking metrics.</p>
+          </div>
+        ) : !filtered.length ? (
+          <div className="metrics-empty">
+            <LayoutDashboard size={48} strokeWidth={1} />
+            <p>No requests found for this model yet.</p>
           </div>
         ) : (
           <>
@@ -125,7 +155,7 @@ export default function MetricsView({ metrics, onClearMetrics }) {
                 value={`$${stats.totalCostUsd < 0.0001
                   ? stats.totalCostUsd.toExponential(2)
                   : stats.totalCostUsd.toFixed(6)}`}
-                sub={`${metrics.length} request${metrics.length !== 1 ? 's' : ''} · avg $${stats.avgCostUsd.toExponential(2)}`}
+                sub={`${filtered.length} request${filtered.length !== 1 ? 's' : ''} · avg $${stats.avgCostUsd.toExponential(2)}`}
                 color="#f59e0b"
                 gradient="linear-gradient(135deg, #d97706, #f59e0b)"
               />
@@ -146,39 +176,12 @@ export default function MetricsView({ metrics, onClearMetrics }) {
                 <ResponsiveContainer width="100%" height={210}>
                   <LineChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={fmt}
-                    />
+                    <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={fmt} />
                     <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} />
                     <Legend wrapperStyle={{ fontSize: '0.78rem', paddingTop: '8px' }} />
-                    <Line
-                      type="monotone"
-                      dataKey="prompt"
-                      name="Input"
-                      stroke="#7c6df0"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 3, fill: '#7c6df0' }}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="completion"
-                      name="Output"
-                      stroke="#c084fc"
-                      strokeWidth={2}
-                      dot={false}
-                      activeDot={{ r: 3, fill: '#c084fc' }}
-                    />
+                    <Line type="monotone" dataKey="prompt" name="Input" stroke="#7c6df0" strokeWidth={2} dot={false} activeDot={{ r: 3, fill: '#7c6df0' }} />
+                    <Line type="monotone" dataKey="completion" name="Output" stroke="#c084fc" strokeWidth={2} dot={false} activeDot={{ r: 3, fill: '#c084fc' }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -188,23 +191,9 @@ export default function MetricsView({ metrics, onClearMetrics }) {
                 <ResponsiveContainer width="100%" height={210}>
                   <BarChart data={chartData} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      labelStyle={LABEL_STYLE}
-                      formatter={(v) => [`${v} ms`, 'Latency']}
-                    />
+                    <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} formatter={(v) => [`${v} ms`, 'Latency']} />
                     <Bar dataKey="latency" name="Latency" fill="#34d399" radius={[3, 3, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -221,33 +210,10 @@ export default function MetricsView({ metrics, onClearMetrics }) {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip
-                      contentStyle={TOOLTIP_STYLE}
-                      labelStyle={LABEL_STYLE}
-                      formatter={(v) => [`${v} µ$`, 'Cost']}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="cost"
-                      name="Cost"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      fill="url(#costGrad)"
-                      dot={false}
-                      activeDot={{ r: 3, fill: '#f59e0b' }}
-                    />
+                    <XAxis dataKey="name" tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={LABEL_STYLE} formatter={(v) => [`${v} µ$`, 'Cost']} />
+                    <Area type="monotone" dataKey="cost" name="Cost" stroke="#f59e0b" strokeWidth={2} fill="url(#costGrad)" dot={false} activeDot={{ r: 3, fill: '#f59e0b' }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

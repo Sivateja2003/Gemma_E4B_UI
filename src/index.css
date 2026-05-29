@@ -778,6 +778,12 @@ body {
     gap: 12px;
 }
 
+.metrics-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
 .metrics-header-title h1 {
     font-family: var(--font-heading);
     font-size: 1rem;
