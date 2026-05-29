@@ -7,7 +7,7 @@ import {
   XAxis, YAxis,
   CartesianGrid, Tooltip, Legend,
 } from 'recharts';
-import { Zap, Clock, DollarSign, TrendingUp, LayoutDashboard, Trash2 } from 'lucide-react';
+import { Zap, Clock, DollarSign, TrendingUp, LayoutDashboard, Trash2, Sun, Moon } from 'lucide-react';
 
 const INR_RATE = 84.5;
 
@@ -49,7 +49,7 @@ function MetricCard({ icon: Icon, label, value, sub, color, gradient }) {
   );
 }
 
-export default function MetricsView({ metrics, onClearMetrics }) {
+export default function MetricsView({ metrics, onClearMetrics, theme, setTheme }) {
   const [selectedModel, setSelectedModel] = useState('all');
 
   const filtered = useMemo(() =>
@@ -100,6 +100,14 @@ export default function MetricsView({ metrics, onClearMetrics }) {
           <h1>DASHBOARD</h1>
         </div>
         <div className="metrics-header-actions">
+          <button
+            onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+            className="theme-toggle-btn"
+            title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            style={{ padding: '5px' }}
+          >
+            {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+          </button>
           <select
             className="model-select"
             value={selectedModel}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard, Compass, ExternalLink } from 'lucide-react';
+import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard, Compass, ExternalLink, Sun, Moon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import MetricsView from './MetricsView';
 import './index.css';
@@ -14,10 +14,35 @@ const MODEL_PRICING = {
 function App() {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
-  const [messages, setMessages] = useState(() => {
-    const saved = localStorage.getItem('gemma_chat_history');
-    return saved ? JSON.parse(saved) : [];
+  const [conversations, setConversations] = useState(() => {
+    const saved = localStorage.getItem('gemma_conversations');
+    if (saved) return JSON.parse(saved);
+    
+    // Migrate single chat history from previous versions:
+    const oldHistory = localStorage.getItem('gemma_chat_history');
+    const oldSessionId = localStorage.getItem('gemma_session_id');
+    if (oldHistory && oldSessionId) {
+      try {
+        const messagesArray = JSON.parse(oldHistory);
+        if (messagesArray.length > 0) {
+          const firstUser = messagesArray.find(m => m.role === 'user')?.content || '';
+          const initialTitle = firstUser ? (firstUser.length > 25 ? firstUser.slice(0, 25) + '...' : firstUser) : 'Previous Chat';
+          const migrated = [{
+            id: oldSessionId,
+            title: initialTitle,
+            messages: messagesArray,
+            timestamp: Date.now()
+          }];
+          localStorage.setItem('gemma_conversations', JSON.stringify(migrated));
+          return migrated;
+        }
+      } catch (err) {
+        console.error('Migration failed:', err);
+      }
+    }
+    return [];
   });
+
   const [sesssionId, setSessionId] = useState(() => {
     const saved = localStorage.getItem('gemma_session_id');
     if (saved) return saved;
@@ -25,6 +50,24 @@ function App() {
     localStorage.setItem('gemma_session_id', newId);
     return newId;
   });
+
+  const [messages, setMessages] = useState(() => {
+    const savedSessionId = localStorage.getItem('gemma_session_id');
+    if (savedSessionId) {
+      const savedConversations = localStorage.getItem('gemma_conversations');
+      if (savedConversations) {
+        try {
+          const list = JSON.parse(savedConversations);
+          const active = list.find(c => c.id === savedSessionId);
+          if (active) return active.messages;
+        } catch (err) {
+          console.error('Failed to load active conversation:', err);
+        }
+      }
+    }
+    return [];
+  });
+
   const [userId] = useState(() => {
     const saved = localStorage.getItem('gemma_user_id');
     if (saved) return saved;
@@ -34,6 +77,7 @@ function App() {
     localStorage.setItem('gemma_user_id', newId);
     return newId;
   });
+
   const [input, setInput] = useState('');
   const [selectedModel, setSelectedModel] = useState('gemma');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,14 +89,44 @@ function App() {
     const saved = localStorage.getItem('gemma_metrics');
     return saved ? JSON.parse(saved) : [];
   });
+  const [theme, setTheme] = useState(() => {
+    const saved = localStorage.getItem('gemma_theme');
+    return saved ? saved : 'dark';
+  });
 
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    localStorage.setItem('gemma_chat_history', JSON.stringify(messages));
+    localStorage.setItem('gemma_theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // Sync active messages to multi-conversation state and LocalStorage:
+  useEffect(() => {
     localStorage.setItem('gemma_session_id', sesssionId);
+  }, [sesssionId]);
+
+  useEffect(() => {
+    if (messages.length === 0) return;
+    
+    setConversations(prev => {
+      const existingIdx = prev.findIndex(c => c.id === sesssionId);
+      let updated;
+      if (existingIdx !== -1) {
+        updated = prev.map((c, i) => i === existingIdx ? { ...c, messages, timestamp: Date.now() } : c);
+      } else {
+        const firstUserMessage = messages.find(m => m.role === 'user')?.content || '';
+        const title = firstUserMessage ? (firstUserMessage.length > 25 ? firstUserMessage.slice(0, 25) + '...' : firstUserMessage) : 'New Chat';
+        updated = [
+          { id: sesssionId, title, messages, timestamp: Date.now() },
+          ...prev
+        ];
+      }
+      localStorage.setItem('gemma_conversations', JSON.stringify(updated));
+      return updated;
+    });
   }, [messages, sesssionId]);
 
   useEffect(() => {
@@ -146,7 +220,7 @@ function App() {
       if (selectedFile) {
         const formData = new FormData();
         formData.append('file', selectedFile);
-        formData.append('mssg', trimmed);
+        formData.append('message', trimmed);
         formData.append('session_id', sesssionId);
         formData.append('user_id', userId);
 
@@ -177,13 +251,30 @@ function App() {
         if (!response.ok) throw new Error('Failed to connect to Gemma E4B');
         data = await response.json();
       }
-
-      const pTok      = data.usage?.prompt_tokens     ?? data.prompt_tokens     ?? data.input_tokens     ?? estimateTokens(trimmed);
-      const cTok      = data.usage?.completion_tokens ?? data.completion_tokens ?? data.output_tokens    ?? estimateTokens(data.response);
-      const latencyMs = data.latency_ms               ?? (Date.now() - startTime);
-      const pricing   = MODEL_PRICING[selectedModel]  ?? MODEL_PRICING.gemma;
-      const costUsd   = data.cost?.usd                ?? (pTok * pricing.input + cTok * pricing.output);
-      const costInr   = data.cost?.inr                ?? (costUsd * 85.0);
+      const latencyMs = Date.now() - startTime;
+      const currentTextTokens = estimateTokens(trimmed);
+      const currentAttachmentTokens = selectedFile 
+        ? (selectedFile.name.toLowerCase().endsWith('.pdf') 
+            ? Math.min(1500, Math.ceil(selectedFile.size / 8)) 
+            : 250) 
+        : 0;
+      const pTok = currentTextTokens + currentAttachmentTokens;
+      
+      const cTok = data.usage?.completion_tokens ?? data.completion_tokens ?? data.output_tokens ?? estimateTokens(data.response);
+      const pricing = MODEL_PRICING[selectedModel] ?? MODEL_PRICING.gemma;
+      
+      const INR_RATE = 84.5;
+      const textTokens = currentTextTokens;
+      const attachmentTokens = currentAttachmentTokens;
+      
+      const inputCostUsd = pTok * pricing.input;
+      const inputCostInr = inputCostUsd * INR_RATE;
+      
+      const outputCostUsd = cTok * pricing.output;
+      const outputCostInr = outputCostUsd * INR_RATE;
+      
+      const totalCostUsd = inputCostUsd + outputCostUsd;
+      const totalCostInr = totalCostUsd * INR_RATE;
       setMetricsData(prev => [...prev, {
         id: `m-${Date.now()}`,
         timestamp: Date.now(),
@@ -192,10 +283,26 @@ function App() {
         total_tokens: pTok + cTok,
         latency_ms: latencyMs,
         model: selectedModel,
-        cost_usd: costUsd,
+        cost_usd: totalCostUsd,
       }]);
 
-      setMessages(prev => [...prev, { role: 'bot', content: data.response, meta: { pTok, cTok, latencyMs, costUsd, costInr } }]);
+      setMessages(prev => [...prev, { 
+        role: 'bot', 
+        content: data.response,
+        metrics: {
+          inputTextTokens: textTokens,
+          inputAttachmentTokens: attachmentTokens,
+          outputTokens: cTok,
+          latencyMs: latencyMs,
+          inputCostUsd,
+          inputCostInr,
+          outputCostUsd,
+          outputCostInr,
+          totalCostUsd,
+          totalCostInr,
+          modelLabel: pricing.label
+        }
+      }]);
     } catch (error) {
       setMessages(prev => [...prev, { role: 'system', content: 'Oops! ' + error.message }]);
     } finally {
@@ -205,8 +312,38 @@ function App() {
     }
   };
 
-  const clearChat = () => {
-    if (window.confirm('Are you sure you want to clear this conversation?')) {
+  const switchConversation = (id) => {
+    const active = conversations.find(c => c.id === id);
+    if (active) {
+      setSessionId(id);
+      setMessages(active.messages);
+      setView('chat');
+    }
+  };
+
+  const deleteConversation = (id, e) => {
+    e.stopPropagation();
+    if (window.confirm('Delete this conversation?')) {
+      const updated = conversations.filter(c => c.id !== id);
+      setConversations(updated);
+      localStorage.setItem('gemma_conversations', JSON.stringify(updated));
+      
+      if (sesssionId === id) {
+        if (updated.length > 0) {
+          setSessionId(updated[0].id);
+          setMessages(updated[0].messages);
+        } else {
+          setSessionId('sess-' + Date.now());
+          setMessages([]);
+        }
+      }
+    }
+  };
+
+  const clearAllConversations = () => {
+    if (window.confirm('Are you sure you want to clear ALL conversations?')) {
+      setConversations([]);
+      localStorage.removeItem('gemma_conversations');
       setMessages([]);
       setSessionId('sess-' + Date.now());
     }
@@ -237,12 +374,27 @@ function App() {
         </div>
 
         <div className="chat-history">
-          <div
-            className={`history-item ${view === 'chat' ? 'active' : ''}`}
-            onClick={() => setView('chat')}
-          >
-            Current Conversation
-          </div>
+          {!conversations.some(c => c.id === sesssionId) && (
+            <div className="history-item-container active">
+              <span className="history-item-title">💬 New Chat...</span>
+            </div>
+          )}
+          {conversations.map(c => (
+            <div
+              key={c.id}
+              className={`history-item-container ${c.id === sesssionId && view === 'chat' ? 'active' : ''}`}
+              onClick={() => switchConversation(c.id)}
+            >
+              <span className="history-item-title">💬 {c.title}</span>
+              <button
+                className="history-delete-btn"
+                onClick={(e) => deleteConversation(c.id, e)}
+                title="Delete Chat"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* ===== Bottom navigation ===== */}
@@ -267,8 +419,8 @@ function App() {
             <span>TokenLens</span>
             <ExternalLink size={11} style={{ marginLeft: 'auto', opacity: 0.45 }} />
           </a>
-          {messages.length > 0 && (
-            <button className="dashboard-nav-btn nav-danger" onClick={clearChat}>
+          {(conversations.length > 0 || messages.length > 0) && (
+            <button className="dashboard-nav-btn nav-danger" onClick={clearAllConversations}>
               <Trash2 size={15} />
               <span>Clear History</span>
             </button>
@@ -291,6 +443,8 @@ function App() {
         <MetricsView
           metrics={metricsData}
           onClearMetrics={() => setMetricsData([])}
+          theme={theme}
+          setTheme={setTheme}
         />
       ) : (
         <main className="main-chat">
@@ -299,6 +453,13 @@ function App() {
               <div className="header-title-icon">G</div>
               <h1>GEMMA E4B</h1>
             </div>
+            <button
+              onClick={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')}
+              className="theme-toggle-btn"
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
           </header>
 
           <div className="messages-container">
@@ -356,16 +517,45 @@ function App() {
                           />
                         ),
                       }}>{m.content}</ReactMarkdown>
-                      {m.role === 'bot' && m.meta && (
-                        <div className="message-meta">
-                          <span>Tokens {m.meta.pTok} / {m.meta.cTok}</span>
-                          <span className="meta-sep">|</span>
-                          <span>{m.meta.latencyMs < 1000 ? `${Math.round(m.meta.latencyMs)}ms` : `${(m.meta.latencyMs / 1000).toFixed(1)}s`}</span>
-                          <span className="meta-sep">|</span>
-                          <span>
-                            {m.meta.costUsd < 0.000001 ? '<$0.000001' : `$${m.meta.costUsd.toFixed(6)}`}
-                            {m.meta.costInr != null && ` / ₹${m.meta.costInr.toFixed(4)}`}
-                          </span>
+                      {m.role === 'bot' && m.metrics && (
+                        <div className="message-metrics">
+                          <div className="metrics-header-row">
+                            <span className="metrics-title">⚡ METRICS ({m.metrics?.modelLabel || 'Gemma'})</span>
+                            <span className="metrics-latency">⏱️ {(m.metrics?.latencyMs ?? 0) >= 1000 ? `${((m.metrics?.latencyMs ?? 0) / 1000).toFixed(2)}s` : `${m.metrics?.latencyMs ?? 0}ms`}</span>
+                          </div>
+                          <div className="metrics-row-grid">
+                            <div className="metric-chip">
+                              <span className="metric-chip-label">Input Text</span>
+                              <span className="metric-chip-val">{m.metrics?.inputTextTokens ?? 0} tkn</span>
+                            </div>
+                            <div className="metric-chip">
+                              <span className="metric-chip-label">Input Attachments</span>
+                              <span className="metric-chip-val">{m.metrics?.inputAttachmentTokens ?? 0} tkn</span>
+                            </div>
+                            <div className="metric-chip">
+                              <span className="metric-chip-label">Output Tokens</span>
+                              <span className="metric-chip-val">{m.metrics?.outputTokens ?? 0} tkn</span>
+                            </div>
+                          </div>
+                          <div className="metrics-cost-section">
+                            <div className="cost-breakdown-row">
+                              <div className="cost-breakdown-col">
+                                <span className="cost-lbl">Input Cost</span>
+                                <span className="cost-val-usd">${(m.metrics?.inputCostUsd ?? 0).toFixed(6)}</span>
+                                <span className="cost-val-inr">₹{(m.metrics?.inputCostInr ?? 0).toFixed(4)}</span>
+                              </div>
+                              <div className="cost-breakdown-col">
+                                <span className="cost-lbl">Output Cost</span>
+                                <span className="cost-val-usd">${(m.metrics?.outputCostUsd ?? 0).toFixed(6)}</span>
+                                <span className="cost-val-inr">₹{(m.metrics?.outputCostInr ?? 0).toFixed(4)}</span>
+                              </div>
+                              <div className="cost-breakdown-col highlight">
+                                <span className="cost-lbl">Total Cost</span>
+                                <span className="cost-val-usd font-bold">${(m.metrics?.totalCostUsd ?? 0).toFixed(6)}</span>
+                                <span className="cost-val-inr font-bold">₹{(m.metrics?.totalCostInr ?? 0).toFixed(4)}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -419,7 +609,7 @@ function App() {
                   ref={textareaRef}
                   value={input}
                   onChange={handleInput}
-                  placeholder="Message Gemma E4B..."
+                  placeholder={`Message ${selectedModel === 'gpt4' ? 'GPT-4' : 'Gemma E4B'}...`}
                   rows="1"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -458,7 +648,7 @@ function App() {
                   </button>
                 </div>
               </div>
-              <p className="disclaimer">Gemma E4B can make mistakes. Check important info.</p>
+              <p className="disclaimer">{selectedModel === 'gpt4' ? 'GPT-4' : 'Gemma E4B'} can make mistakes. Check important info.</p>
             </form>
           </footer>
         </main>
