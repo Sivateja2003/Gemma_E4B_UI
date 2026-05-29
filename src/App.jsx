@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard } from 'lucide-react';
+import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard, Compass, ExternalLink } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import MetricsView from './MetricsView';
 import './index.css';
@@ -24,6 +24,7 @@ function App() {
     return newId;
   });
   const [input, setInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemma');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileError, setFileError] = useState('');
@@ -211,15 +212,29 @@ function App() {
           >
             Current Conversation
           </div>
-          {messages.length > 0 && (
-            <button
-              className="history-item delete-history"
-              onClick={clearChat}
-              style={{ marginTop: 'auto', border: 'none', background: 'none', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '8px' }}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {messages.length > 0 && (
+              <button
+                className="history-item delete-history"
+                onClick={clearChat}
+                style={{ border: 'none', background: 'none', color: '#ff7675', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}
+              >
+                <Trash2 size={14} /> Clear History
+              </button>
+            )}
+            <a
+              href="https://tokenlens.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="history-item tokenlens-link"
             >
-              <Trash2 size={14} /> Clear History
-            </button>
-          )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Compass size={14} />
+                <span>TokenLens</span>
+              </div>
+              <ExternalLink size={12} style={{ opacity: 0.5 }} />
+            </a>
+          </div>
         </div>
 
         {/* ===== Dashboard nav — above footer ===== */}
@@ -374,6 +389,14 @@ function App() {
                     onChange={handleFileSelect}
                     style={{ display: 'none' }}
                   />
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="model-select"
+                  >
+                    <option value="gemma">Gemma</option>
+                    <option value="gpt4">GPT-4</option>
+                  </select>
                   <button
                     type="button"
                     className={`tool-btn ${selectedFile ? 'tool-btn-active' : ''}`}
