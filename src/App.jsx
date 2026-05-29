@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard, Compass, ExternalLink, Sun, Moon } from 'lucide-react';
+import { Plus, Settings, Send, User, Paperclip, Trash2, X, FileText, Image, LayoutDashboard, Sun, Moon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import MetricsView from './MetricsView';
 import './index.css';
@@ -404,22 +404,12 @@ function App() {
             onClick={() => setView('metrics')}
           >
             <LayoutDashboard size={15} />
-            <span>Analytics Dashboard</span>
+            <span>TokenLens</span>
             {metricsData.length > 0 && (
               <span className="dashboard-nav-badge">{metricsData.length}</span>
             )}
           </button>
-          <a
-            href="https://tokenlens.dev"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="dashboard-nav-btn tokenlens-nav"
-          >
-            <Compass size={15} />
-            <span>TokenLens</span>
-            <ExternalLink size={11} style={{ marginLeft: 'auto', opacity: 0.45 }} />
-          </a>
-          {(conversations.length > 0 || messages.length > 0) && (
+{(conversations.length > 0 || messages.length > 0) && (
             <button className="dashboard-nav-btn nav-danger" onClick={clearAllConversations}>
               <Trash2 size={15} />
               <span>Clear History</span>
@@ -526,15 +516,15 @@ function App() {
                           <div className="metrics-row-grid">
                             <div className="metric-chip">
                               <span className="metric-chip-label">Input Text</span>
-                              <span className="metric-chip-val">{m.metrics?.inputTextTokens ?? 0} tkn</span>
+                              <span className="metric-chip-val">{m.metrics?.inputTextTokens ?? 0} Tokens</span>
                             </div>
                             <div className="metric-chip">
                               <span className="metric-chip-label">Input Attachments</span>
-                              <span className="metric-chip-val">{m.metrics?.inputAttachmentTokens ?? 0} tkn</span>
+                              <span className="metric-chip-val">{m.metrics?.inputAttachmentTokens ?? 0} Tokens</span>
                             </div>
                             <div className="metric-chip">
                               <span className="metric-chip-label">Output Tokens</span>
-                              <span className="metric-chip-val">{m.metrics?.outputTokens ?? 0} tkn</span>
+                              <span className="metric-chip-val">{m.metrics?.outputTokens ?? 0} Tokens</span>
                             </div>
                           </div>
                           <div className="metrics-cost-section">

@@ -752,11 +752,6 @@ body {
     margin-bottom: 0;
 }
 
-.tokenlens-nav {
-    text-decoration: none;
-    color: inherit;
-}
-
 .nav-danger {
     color: var(--danger) !important;
     background: transparent !important;
@@ -1021,21 +1016,6 @@ body {
     letter-spacing: 0.8px;
 }
 
-/* TokenLens Link styling in sidebar */
-.tokenlens-link {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    text-decoration: none !important;
-    color: var(--text-dim) !important;
-    transition: all 0.2s ease;
-}
-
-.tokenlens-link:hover {
-    color: var(--text-main) !important;
-    background: var(--glass-hover);
-}
-
 /* ========== Message Meta (tokens / latency / cost) ========== */
 .message-meta {
     display: flex;
@@ -1138,7 +1118,7 @@ body {
 }
 
 .metric-chip-val {
-    font-size: 0.78rem;
+    font-size: 0.92rem;
     font-weight: 600;
     color: var(--text-main);
     font-family: var(--font-heading);
