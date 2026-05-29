@@ -911,3 +911,35 @@ body {
     text-transform: uppercase;
     letter-spacing: 0.8px;
 }
+
+/* TokenLens Link styling in sidebar */
+.tokenlens-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    text-decoration: none !important;
+    color: var(--text-dim) !important;
+    transition: all 0.2s ease;
+}
+
+.tokenlens-link:hover {
+    color: var(--text-main) !important;
+    background: var(--glass-hover);
+}
+
+/* Model selection dropdown in input toolbar */
+.model-select {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.4rem;
+    cursor: pointer;
+    outline: none;
+}
+
+.model-select:hover {
+    color: var(--text-main);
+    border-color: var(--accent);
+}
