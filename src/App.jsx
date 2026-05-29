@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import MetricsView from './MetricsView';
 import './index.css';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml'];
 const MODEL_PRICING = {
   gemma: { input: 0.10 / 1_000_000, output: 0.40 / 1_000_000, label: 'Gemma' },
