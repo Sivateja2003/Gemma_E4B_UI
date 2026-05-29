@@ -516,6 +516,38 @@ body {
     color: var(--danger);
 }
 
+/* ---- Upload Progress ---- */
+.upload-progress {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+}
+
+.upload-progress-track {
+    flex: 1;
+    height: 5px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+}
+
+.upload-progress-bar {
+    height: 100%;
+    background: linear-gradient(135deg, var(--accent), var(--accent-secondary));
+    border-radius: 999px;
+    transition: width 0.2s ease;
+}
+
+.upload-progress-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    min-width: 30px;
+    text-align: right;
+}
+
 /* ---- Input Wrapper ---- */
 .input-wrapper {
     background: #16161a;
@@ -579,6 +611,12 @@ body {
 .tool-btn-active {
     color: var(--accent);
     background: rgba(124, 109, 240, 0.15);
+}
+
+.tool-btn:disabled {
+    color: var(--text-muted);
+    background: none;
+    cursor: not-allowed;
 }
 
 .send-btn {

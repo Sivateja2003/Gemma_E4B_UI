@@ -30,6 +30,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileError, setFileError] = useState('');
+  const [uploadProgress, setUploadProgress] = useState(null); // null = not uploading
   const [view, setView] = useState('chat');
   const [metricsData, setMetricsData] = useState(() => {
     const saved = localStorage.getItem('gemma_metrics');
@@ -71,13 +72,14 @@ function App() {
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setFileError('Only PDF and image files are allowed.');
+    const isPdf = ALLOWED_TYPES.includes(file.type) || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setFileError('Only PDF files are allowed.');
       e.target.value = '';
       return;
     }
     if (file.size > MAX_FILE_SIZE) {
-      setFileError('File must be smaller than 5 MB.');
+      setFileError('File must be smaller than 10 MB.');
       e.target.value = '';
       return;
     }
@@ -138,12 +140,24 @@ function App() {
         formData.append('mssg', trimmed);
         formData.append('session_id', sesssionId);
 
-        const response = await fetch(`${API_BASE_URL}/chat-file`, {
-          method: 'POST',
-          body: formData,
+        setUploadProgress(0);
+        data = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('POST', `${API_BASE_URL}/chat-file`);
+          xhr.upload.onprogress = (ev) => {
+            if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try { resolve(JSON.parse(xhr.responseText)); }
+              catch { reject(new Error('Invalid response from server')); }
+            } else {
+              reject(new Error('Failed to process file'));
+            }
+          };
+          xhr.onerror = () => reject(new Error('Failed to process file'));
+          xhr.send(formData);
         });
-        if (!response.ok) throw new Error('Failed to process file');
-        data = await response.json();
       } else {
         const response = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
@@ -175,6 +189,7 @@ function App() {
     } finally {
       setIsLoading(false);
       setSelectedFile(null);
+      setUploadProgress(null);
     }
   };
 
@@ -367,7 +382,16 @@ function App() {
                   {isImageFile(selectedFile) ? <Image size={16} /> : <FileText size={16} />}
                   <span className="file-name">{selectedFile.name}</span>
                   <span className="file-size">({(selectedFile.size / 1024).toFixed(0)} KB)</span>
-                  <button type="button" className="file-remove" onClick={removeFile}><X size={14} /></button>
+                  {uploadProgress !== null ? (
+                    <div className="upload-progress">
+                      <div className="upload-progress-track">
+                        <div className="upload-progress-bar" style={{ width: `${uploadProgress}%` }} />
+                      </div>
+                      <span className="upload-progress-label">{uploadProgress}%</span>
+                    </div>
+                  ) : (
+                    <button type="button" className="file-remove" onClick={removeFile}><X size={14} /></button>
+                  )}
                 </div>
               )}
 
@@ -389,7 +413,7 @@ function App() {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".pdf,image/*"
+                    accept="application/pdf,.pdf"
                     onChange={handleFileSelect}
                     style={{ display: 'none' }}
                   />
@@ -405,7 +429,8 @@ function App() {
                     type="button"
                     className={`tool-btn ${selectedFile ? 'tool-btn-active' : ''}`}
                     onClick={() => fileInputRef.current?.click()}
-                    title="Attach PDF or image (max 5 MB)"
+                    disabled={isLoading}
+                    title="Attach a PDF (max 10 MB)"
                   >
                     <Paperclip size={18} />
                   </button>
